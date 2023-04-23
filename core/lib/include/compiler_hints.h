@@ -21,6 +21,8 @@
 #ifndef COMPILER_HINTS_H
 #define COMPILER_HINTS_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -64,6 +66,20 @@ extern "C" {
 #else
 #define MAYBE_UNUSED
 #endif
+#endif
+
+/**
+ * @def       NO_SANITIZE_ARRAY
+ * @brief     Tell the compiler that this array should be ignored during sanitizing.
+ * @details   In special cases, e.g. XFA, the address sanitizer might interfere
+ *            in a way that breaks the application. Use this macro to disable
+ *            address sanitizing for a given variable. Currently only utilised
+ *            by llvm.
+ */
+#if defined(__llvm__) || defined(__clang__)
+#define NO_SANITIZE_ARRAY __attribute__((no_sanitize("address")))
+#else
+#define NO_SANITIZE_ARRAY
 #endif
 
 /**
@@ -129,6 +145,24 @@ extern "C" {
 #else
 #define IS_CT_CONSTANT(expr) 0
 #endif
+
+/**
+ * @brief   Hint to the compiler that the condition @p x is likely taken
+ *
+ * @param[in] x     Condition that is likely taken
+ *
+ * @return result of @p x
+ */
+#define likely(x)       __builtin_expect((uintptr_t)(x), 1)
+
+/**
+ * @brief   Hint to the compiler that the condition @p x is likely not taken
+ *
+ * @param[in] x     Condition that is unlikely
+ *
+ * @return result of @p x
+ */
+#define unlikely(x)     __builtin_expect((uintptr_t)(x), 0)
 
 #ifdef __cplusplus
 }

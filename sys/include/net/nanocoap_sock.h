@@ -132,19 +132,49 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include "random.h"
 #include "net/nanocoap.h"
 #include "net/sock/udp.h"
 #include "net/sock/util.h"
+#if IS_USED(MODULE_NANOCOAP_DTLS)
+#include "net/credman.h"
+#include "net/sock/dtls.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**
- * @brief   nanocoap socket type
- *
+ * @brief   Credman tag used for NanoCoAP
+ *          Tag together with the credential type (PSK) needs to be unique
  */
-typedef sock_udp_t nanocoap_sock_t;
+#ifndef CONFIG_NANOCOAP_SOCK_DTLS_TAG
+#define CONFIG_NANOCOAP_SOCK_DTLS_TAG           (0xc0ab)
+#endif
+
+/**
+ * @brief   NanoCoAP socket types
+ */
+typedef enum {
+    COAP_SOCKET_TYPE_UDP,                   /**< transport is plain UDP */
+    COAP_SOCKET_TYPE_DTLS,                  /**< transport is DTLS      */
+} nanocoap_socket_type_t;
+
+/**
+ * @brief   NanoCoAP socket struct
+ */
+typedef struct {
+    sock_udp_t udp;                         /**< UDP socket     */
+#if IS_USED(MODULE_NANOCOAP_DTLS) || defined(DOXYGEN)
+    sock_dtls_t dtls;                       /**< DTLS socket    */
+    sock_dtls_session_t dtls_session;       /**< Session object for the stored socket.
+                                                 Used for exchanging a session between
+                                                 functions. */
+    nanocoap_socket_type_t type;            /**< Socket type (UDP, DTLS) */
+#endif
+    uint16_t msg_id;                        /**< next CoAP message ID */
+} nanocoap_sock_t;
 
 /**
  * @brief Blockwise request helper struct
@@ -156,6 +186,19 @@ typedef struct {
     uint8_t method;                 /**< request method (GET, POST, PUT)    */
     uint8_t blksize;                /**< CoAP blocksize exponent            */
 } coap_block_request_t;
+
+/**
+ * @brief   Get next consecutive message ID for use when building a new
+ *          CoAP request.
+ *
+ * @param[in]   sock    CoAP socket on which the ID is used
+ *
+ * @return  A new message ID that can be used for a request or response.
+ */
+static inline uint16_t nanocoap_sock_next_msg_id(nanocoap_sock_t *sock)
+{
+    return sock->msg_id++;
+}
 
 /**
  * @brief   Start a nanocoap server instance
@@ -185,8 +228,30 @@ static inline int nanocoap_sock_connect(nanocoap_sock_t *sock,
                                         const sock_udp_ep_t *local,
                                         const sock_udp_ep_t *remote)
 {
-    return sock_udp_create(sock, local, remote, 0);
+#if IS_USED(MODULE_NANOCOAP_DTLS)
+    sock->type = COAP_SOCKET_TYPE_UDP;
+#endif
+    sock->msg_id = random_uint32();
+
+    return sock_udp_create(&sock->udp, local, remote, 0);
 }
+
+#if IS_USED(MODULE_NANOCOAP_DTLS) || DOXYGEN
+/**
+ * @brief   Create a DTLS secured CoAP client socket
+ *
+ * @param[out]  sock    CoAP UDP socket
+ * @param[in]   local   Local UDP endpoint, may be NULL
+ * @param[in]   remote  remote UDP endpoint
+ * @param[in]   tag     Tag of the PSK credential to use
+ *                      Has to be added with @ref credman_add
+ *
+ * @returns     0 on success
+ * @returns     <0 on error
+ */
+int nanocoap_sock_dtls_connect(nanocoap_sock_t *sock, sock_udp_ep_t *local,
+                               const sock_udp_ep_t *remote, credman_tag_t tag);
+#endif
 
 /**
  * @brief   Create a CoAP client socket by URL
@@ -206,7 +271,13 @@ int nanocoap_sock_url_connect(const char *url, nanocoap_sock_t *sock);
  */
 static inline void nanocoap_sock_close(nanocoap_sock_t *sock)
 {
-    sock_udp_close(sock);
+#if IS_USED(MODULE_NANOCOAP_DTLS)
+    if (sock->type == COAP_SOCKET_TYPE_DTLS) {
+        sock_dtls_session_destroy(&sock->dtls, &sock->dtls_session);
+        sock_dtls_close(&sock->dtls);
+    }
+#endif
+    sock_udp_close(&sock->udp);
 }
 
 /**
@@ -328,6 +399,27 @@ ssize_t nanocoap_sock_post_url(const char *url,
                                void *response, size_t len_max);
 
 /**
+ * @brief   Simple synchronous CoAP (confirmable) DELETE
+ *
+ * @param[in]   sock    socket to use for the request
+ * @param[in]   path    remote path to delete
+ *
+ * @returns     0 on success
+ * @returns     <0 on error
+ */
+ssize_t nanocoap_sock_delete(nanocoap_sock_t *sock, const char *path);
+
+/**
+ * @brief   Simple synchronous CoAP (confirmable) DELETE for URL
+ *
+ * @param[in]   url     URL of the resource that should be deleted
+ *
+ * @returns     0 on success
+ * @returns     <0 on error
+ */
+ssize_t nanocoap_sock_delete_url(const char *url);
+
+/**
  * @brief    Performs a blockwise coap get request on a socket.
  *
  * This function will fetch the content of the specified resource path via
@@ -420,7 +512,7 @@ ssize_t nanocoap_sock_request(nanocoap_sock_t *sock, coap_pkt_t *pkt, size_t len
  * @returns     length of response on success
  * @returns     <0 on error
  */
-ssize_t nanocoap_sock_request_cb(sock_udp_t *sock, coap_pkt_t *pkt,
+ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
                                  coap_request_cb_t cb, void *arg);
 
 /**
