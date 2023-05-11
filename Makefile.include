@@ -2,6 +2,7 @@ MATCH_MAKE_VERSION = 4.%
 
 MAKEFLAGS += --no-builtin-rules
 
+# 检查make版本是否符合要求
 ifeq (,$(filter $(MATCH_MAKE_VERSION),$(MAKE_VERSION)))
   $(error GNU Make $(MAKE_VERSION) is not supported by RIOT since release \
       2020.01. Please upgrade your system to use GNU Make \
@@ -15,7 +16,7 @@ endif
 #
 # See https://www.gnu.org/software/make/manual/html_node/Secondary-Expansion.html
 # for what it can be used for.
-.SECONDEXPANSION:
+.SECONDEXPANSION:# 支持二次展开
 
 # Will evaluate to the absolute path of the Makefile it's evaluated in.¹
 #
@@ -24,10 +25,10 @@ endif
 #
 # [1] Note that this will in fact return the path of the last Makefile that
 # was included, so it must be evaluated before any subsequent includes.
-LAST_MAKEFILEDIR = $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+LAST_MAKEFILEDIR = $(abspath $(dir $(lastword $(MAKEFILE_LIST))))# 当前makefile的绝对路径
 
 # 'Makefile.include' directory, must be evaluated before other 'include'
-_riotbase := $(LAST_MAKEFILEDIR)
+_riotbase := $(LAST_MAKEFILEDIR)# 当前makefile的绝对路径
 
 # include RIOT_MAKEFILES_GLOBAL_PRE configuration files
 # allows setting user specific system wide configuration parsed before the body
@@ -53,7 +54,7 @@ EXTERNAL_PKG_DIRS               ?=
 RIOTTOOLS                       ?= $(RIOTBASE)/dist/tools
 RIOTPROJECT                     ?= $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
 BUILD_DIR                       ?= $(RIOTBASE)/build
-APPDIR                          ?= $(CURDIR)
+APPDIR                          ?= $(CURDIR) # APP绝对路径
 BINDIRBASE                      ?= $(APPDIR)/bin
 BINDIR                          ?= $(BINDIRBASE)/$(BOARD)
 PKGDIRBASE                      ?= $(RIOTBASE)/build/pkg
