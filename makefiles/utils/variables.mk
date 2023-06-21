@@ -30,6 +30,7 @@ memoized = $2$(eval $1:=$2)
 #
 # The variable will only be evaluated when executing the target as when
 # doing export
+# 将指定变量导出为特定目标的变量
 target-export-variables = $(foreach var,$(2),$(call _target-export-variable,$1,$(var)))
 
 # '$1: export $2' cannot be used alone

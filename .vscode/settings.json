@@ -17,4 +17,11 @@
         "editor.tabSize": 2,
         "editor.insertSpaces": true,
     },
+        "clangd.path": "/opt/clangd_15.0.6/bin/clangd",// clangd路径
+    "clangd.arguments": ["-log=verbose",
+                         "-pretty",
+                         "--background-index",
+                         "--query-driver=/usr/bin/gcc", // 交叉编译时的编译器路径
+                         "--compile-commands-dir=examples/blinky"// compile_commands.json文件所在路径
+                         ],
 }
