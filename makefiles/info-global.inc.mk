@@ -107,7 +107,7 @@ BOARDS := $(filter-out $(BOARDS_WITH_MISSING_FEATURES) \
                        $(BOARDS_WITH_CONFLICTING_FEATURES), $(BOARDS))
 
 info-buildsizes: SHELL=bash
-info-buildsizes:
+info-buildsizes: # 打印boards目录下各板子的image size信息
 	@echo -e "   text\t   data\t    bss\t    dec\tboard"; \
 	for board in $(BOARDS); do \
 	    echo "$$(BOARD=$${board} $(MAKE) --no-print-directory info-buildsize 2>/dev/null | tail -n-1 | cut -f-4)" "$${board}"; \

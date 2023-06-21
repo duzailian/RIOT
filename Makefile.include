@@ -1,6 +1,6 @@
 MATCH_MAKE_VERSION = 4.%
 
-MAKEFLAGS += --no-builtin-rules
+MAKEFLAGS += --no-builtin-rules # 不支持内建规则
 
 # 检查make版本是否符合要求
 ifeq (,$(filter $(MATCH_MAKE_VERSION),$(MAKE_VERSION)))
@@ -52,6 +52,8 @@ RIOTKCONFIG                     ?= $(RIOTBASE)/kconfigs
 RIOTPKG                         ?= $(RIOTBASE)/pkg
 EXTERNAL_PKG_DIRS               ?=
 RIOTTOOLS                       ?= $(RIOTBASE)/dist/tools
+
+#RIOT根目录
 RIOTPROJECT                     ?= $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
 BUILD_DIR                       ?= $(RIOTBASE)/build
 APPDIR                          ?= $(CURDIR) # APP绝对路径
@@ -107,16 +109,17 @@ endif
 
 # Deprecation of configuring 'RIOTBOARD'
 ifneq ($(abspath $(RIOTBASE)/boards),$(abspath $(RIOTBOARD)))
+  # board 文件夹被指定为外部文件夹
   $(warning overriding RIOTBOARD for external boards is deprecated, use EXTERNAL_BOARD_DIRS instead)
   override RIOTBOARD      := $(abspath $(RIOTBOARD))
   __DIRECTORY_VARIABLES += RIOTBOARD
 endif
 
 # Only warn users, not the CI.
-ifneq ($(RIOT_CI_BUILD),1)
+ifneq ($(RIOT_CI_BUILD),1) # 只有在非CI环境下可输出warning
   # Do not warn when set from sub-make
   ifeq ($(MAKELEVEL),0)
-    ifneq (,$(BOARDSDIR))
+    ifneq (,$(BOARDSDIR)) # 使用BOARDSDIR变量已过时，建议使用EXTERNAL_BOARD_DIRS
       $(warning Using BOARDSDIR is deprecated use EXTERNAL_BOARD_DIRS instead)
       $(info EXTERNAL_BOARD_DIRS can contain multiple folders separated by space)
     endif
@@ -152,6 +155,7 @@ EXTERNAL_PKG_DIRS               := $(foreach dir,\
                                              $(abspath $(dir)))
 
 # Ensure that all directories are set and don't contain spaces.
+# 路径中包含空格，报错
 ifneq (, $(filter-out 1, $(foreach v,$(__DIRECTORY_VARIABLES),$(words $($(v))))))
   $(info Aborting compilation for your safety.)
   $(info Related variables = $(__DIRECTORY_VARIABLES))
@@ -160,6 +164,7 @@ endif
 
 # Path to the current directory relative to RIOTPROJECT
 # trailing '/' is important when RIOTPROJECT == CURDIR
+# 将当前执行命令的路径改为相对路径
 BUILDRELPATH ?= $(patsubst $(RIOTPROJECT)/%,%,$(CURDIR)/)
 
 # Set CLEAN to "clean" if that target was requested.
@@ -167,11 +172,12 @@ BUILDRELPATH ?= $(patsubst $(RIOTPROJECT)/%,%,$(CURDIR)/)
 #
 # all: | $(CLEAN)
 #
+# 若命令行中的目标包含clean则将CLEAN变量设为clean
 CLEAN = $(filter clean, $(MAKECMDGOALS))
 
 # include makefiles utils tools
-include $(RIOTMAKE)/utils/variables.mk
-include $(RIOTMAKE)/utils/strings.mk
+include $(RIOTMAKE)/utils/variables.mk #变量相关工具
+include $(RIOTMAKE)/utils/strings.mk #字符串相关工具
 
 # include nimble makefile tools
 include $(RIOTMAKE)/pkg/nimble.adv.mk
@@ -197,17 +203,17 @@ include $(RIOTMAKE)/utils/ansi.mk
 include $(RIOTMAKE)/color.inc.mk
 
 # include concurrency helpers
-include $(RIOTMAKE)/info-nproc.inc.mk
+include $(RIOTMAKE)/info-nproc.inc.mk #nproc命令
 
 # List of boards variables
-include $(RIOTMAKE)/boards.inc.mk
+include $(RIOTMAKE)/boards.inc.mk # 包含boards相关信息
 
 # Debug targets for build system migration
 include $(RIOTMAKE)/dependencies_debug.inc.mk
 
 # Use TOOLCHAIN environment variable to select the toolchain to use.
 ifeq ($(BOARD),native)
-  ifeq ($(OS),Darwin)
+  ifeq ($(OS),Darwin)# Darwin不支持native编译
     $(shell $(COLOR_ECHO) "$(COLOR_RED)"Buildin on macOS is not supported."\
                           "We recommend vagrant for building:$(COLOR_RESET)"\
                           "https://github.com/RIOT-OS/RIOT/blob/master/dist/tools/vagrant/README.md 1>&2)
@@ -215,7 +221,7 @@ ifeq ($(BOARD),native)
 endif
 # Use override so that we can redefine a variable set on the command line (as
 # opposed to one set in the environment)
-ifeq (clang,$(TOOLCHAIN))
+ifeq (clang,$(TOOLCHAIN)) # 
   # TOOLCHAIN = clang is an alias for TOOLCHAIN = llvm
   override TOOLCHAIN := llvm
 endif
